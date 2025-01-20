@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Smart HR by Etra</title>
+  <title>Smart HR by Etra - Final Working Code</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Bootstrap CSS -->
@@ -36,7 +36,7 @@
       position: fixed;
       top: 0; left: 0;
       width: 100vw; height: 100vh;
-      background: url("1.mp4") no-repeat center center;
+      background: url("images/1.gif") no-repeat center center;
       background-size: cover;
       filter: blur(8px);
       z-index: 1;
@@ -177,7 +177,7 @@
 
   <div class="container">
     <h1>Smart HR by Etra</h1>
-    <p class="subtitle">Join Etra and unlock a future where cutting-edge technologies open the door to unparalleled growth opportunities</p>
+    <p class="subtitle">All 70 Questions, Time Tracking, Observations, HR Analysis</p>
 
     <!-- Registration Card -->
     <div id="registration-card" class="card">
@@ -248,7 +248,7 @@
 
     <!-- SUMMARY SECTION -->
     <div id="summary-section">
-      <div class="etra-branding-print">Smart HR by Etra - Report</div>
+      <div class="etra-branding-print">Smart HR by Etra - Detailed Report</div>
 
       <button id="print-btn">Print Results</button>
       <div class="score-meter">
@@ -309,6 +309,7 @@
      * 1. GLOBAL STATE
      ********************************************************/
     let quizStarted=false;
+    let candidateName = "";
     let skipCount=0;
     const MAX_SKIPS=2;
     let currentIndex=0;
@@ -1003,6 +1004,10 @@
      ********************************************************/
     function handleStart(){
       const nameVal=document.getElementById("candidateName").value.trim();
+      if (!nameVal) {
+        showToast("Please enter your name.", "warning");
+        return;
+      }
       const expVal=document.getElementById("experienceSelect").value;
       const cats=getCheckedCategories();
 
@@ -1227,6 +1232,7 @@
       let inactivityCount=observations.filter(o=>o.event==="USER_INACTIVE_1MIN").length;
 
       let analysis=`
+      <p><strong>Candidate:</strong> ${candidateName}</p>
         <p>You scored <strong>${score}/${total}</strong> (${pct}%). ${ratingMsg}</p>
         <p>Skips used: ${skipCount}/${MAX_SKIPS}</p>
         <p>Total Time: <strong>${totalTime}s</strong>, 
