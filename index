@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart HR by Etra - Final Working Code</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <!-- Chart.js (for time chart) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js">
+  </script>
+
+  <style>
+    /* 1. BODY & BLURRED GIF BACKGROUND */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      color: #fff;
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      position: relative;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: url("images/1.gif") no-repeat center center;
+      background-size: cover;
+      filter: blur(8px);
+      z-index: 1;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* 2. MAIN CONTAINER */
+    .container {
+      position: relative;
+      z-index: 2;
+      background: #fff;
+      color: #333;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      max-width: 900px;
+      width: 100%;
+      margin: 20px auto;
+      padding: 30px;
+      box-sizing: border-box;
+    }
+    h1 {
+      text-align: center; margin-bottom: 1rem; color: #333;
+    }
+    .subtitle {
+      text-align: center; margin-bottom: 1.5rem; color: #666;
+    }
+
+    /* 3. TOAST NOTIFICATIONS */
+    .toast-container {
+      position: fixed; top: 1rem; right: 1rem; z-index: 9999;
+    }
+    .toast-msg {
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      min-width: 200px;
+      color: #fff;
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+
+    /* 4. REGISTRATION */
+    #registration-card { margin-bottom: 2rem; }
+
+    /* 5. QUIZ SECTION (One question per screen) */
+    #quiz-section { display: none; }
+    .question-box {
+      background: #f1f1f1;
+      color: #333;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .time-info {
+      font-size: 0.9rem;
+      font-style: italic;
+      color: #666;
+      margin-top: 5px;
+    }
+    .quiz-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    .skip-btn {
+      background: #ffc107; border: none; color: #333; padding: 8px 12px; border-radius: 4px;
+    }
+    .skip-btn:disabled {
+      background: #ccc; cursor: not-allowed;
+    }
+    #next-btn {
+      background: #2575fc; border: none; color: #fff; padding: 8px 16px;
+      font-size: 1rem; transition: background 0.3s ease;
+    }
+    #next-btn:hover {
+      background: #1b60d1;
+    }
+
+    /* 6. SUMMARY SECTION */
+    #summary-section { display: none; }
+    .score-meter {
+      display: flex; align-items: center; justify-content: center; margin-bottom: 30px;
+    }
+    .meter-circle {
+      position: relative; width: 200px; height: 200px; border-radius: 50%;
+      background: conic-gradient(#2575fc 0deg, #ccc 0deg);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 1s ease;
+    }
+    .meter-circle span {
+      position: absolute; font-size: 1.5rem; font-weight: bold;
+    }
+    .correct { color: green; font-weight: 600; }
+    .incorrect { color: red; font-weight: 600; }
+    .explanation { color: #555; font-style: italic; margin: 0; }
+    .chart-container {
+      display: flex; flex-wrap: wrap; gap: 2rem; margin-top: 2rem; justify-content: center;
+    }
+    .chart-box {
+      flex: 1 1 300px; min-width: 300px; max-width: 450px;
+    }
+    #obs-log {
+      background: #ffe7e7; color: #333; padding: 10px; margin-top: 20px; border-radius: 5px;
+    }
+    #print-btn {
+      background: #2575fc; border: none; color: #fff; padding: 10px 20px; font-size: 1rem;
+      transition: background 0.3s; margin-bottom: 15px; border-radius: 4px;
+    }
+    #print-btn:hover {
+      background: #1b60d1;
+    }
+
+    .made-by {
+      text-align: center; margin-top: 20px; color: #999; font-size: 0.9rem;
+    }
+
+    .etra-branding-print {
+      display: none; text-align: center; margin-bottom: 1rem; font-weight: bold; font-size: 1.2rem;
+    }
+
+    /* 7. PRINT STYLES */
+    @media print {
+      body {
+        background: #fff !important; color: #000 !important;
+      }
+      body::before { content: none !important; }
+      #registration-card, #quiz-section { display: none !important; }
+      .toast-container { display: none !important; }
+      .etra-branding-print { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="container">
+    <h1>Smart HR by Etra</h1>
+    <p class="subtitle">All 70 Questions, Time Tracking, Observations, HR Analysis</p>
+
+    <!-- Registration Card -->
+    <div id="registration-card" class="card">
+      <div class="card-body">
+        <h5 class="card-title text-center mb-3">Candidate Registration</h5>
+        <div class="mb-3">
+          <label for="candidateName" class="form-label">Name:</label>
+          <input type="text" id="candidateName" class="form-control" placeholder="Enter your name"/>
+        </div>
+        <div class="mb-3">
+          <label for="experienceSelect" class="form-label">Experience Level:</label>
+          <select id="experienceSelect" class="form-select">
+            <option value="">-- Select Experience --</option>
+            <option value="fresh">Fresh (0-1 year)</option>
+            <option value="mid">Mid (2-4 years)</option>
+            <option value="senior">Senior (5+ years)</option>
+          </select>
+        </div>
+        <p><strong>Select exactly 5 categories:</strong></p>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="SEO" id="catSEO">
+              <label class="form-check-label" for="catSEO">SEO</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="SEM" id="catSEM">
+              <label class="form-check-label" for="catSEM">SEM</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Social Media" id="catSocial">
+              <label class="form-check-label" for="catSocial">Social Media</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Content" id="catContent">
+              <label class="form-check-label" for="catContent">Content</label>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Email" id="catEmail">
+              <label class="form-check-label" for="catEmail">Email</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Web Design" id="catWeb">
+              <label class="form-check-label" for="catWeb">Web Design</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Server" id="catServer">
+              <label class="form-check-label" for="catServer">Server</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer text-center">
+        <button id="start-btn" class="btn btn-primary">Start Quiz</button>
+      </div>
+    </div>
+
+    <!-- QUIZ SECTION -->
+    <div id="quiz-section">
+      <div id="question-box" class="question-box"></div>
+      <div class="quiz-actions">
+        <button id="skip-btn" class="skip-btn">Skip</button>
+        <button id="next-btn" class="btn btn-primary">Next</button>
+      </div>
+    </div>
+
+    <!-- SUMMARY SECTION -->
+    <div id="summary-section">
+      <div class="etra-branding-print">Smart HR by Etra - Detailed Report</div>
+
+      <button id="print-btn">Print Results</button>
+      <div class="score-meter">
+        <div class="meter-circle" id="meter-circle">
+          <span id="score-value">0%</span>
+        </div>
+      </div>
+      <h3>Final Assessment</h3>
+      <div id="analysis" class="mb-3"></div>
+
+      <div class="chart-container">
+        <div class="chart-box">
+          <canvas id="timeChart"></canvas>
+        </div>
+      </div>
+
+      <div id="detailsList"></div>
+
+      <div id="obs-log">
+        <h5>Additional Observations</h5>
+        <div id="obsDetails"></div>
+      </div>
+    </div>
+
+    <p class="made-by">© Smart HR by Etra</p>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js">
+  </script>
+
+  <script>
+    /********************************************************
+     * 0. TOAST NOTIFICATIONS
+     ********************************************************/
+    function showToast(msg, variant="info"){
+      const container=document.getElementById("toastContainer");
+      const toastEl=document.createElement("div");
+      toastEl.classList.add("toast-msg");
+
+      let bg="#007bff";
+      if(variant==="warning") bg="#ffc107";
+      else if(variant==="danger") bg="#dc3545";
+      else if(variant==="success") bg="#28a745";
+      toastEl.style.backgroundColor=bg;
+      toastEl.innerText=msg;
+      container.appendChild(toastEl);
+
+      setTimeout(()=>{
+        if(container.contains(toastEl)){
+          container.removeChild(toastEl);
+        }
+      },3000);
+    }
+
+    /********************************************************
+     * 1. GLOBAL STATE
+     ********************************************************/
+    let quizStarted=false;
+    let skipCount=0;
+    const MAX_SKIPS=2;
+    let currentIndex=0;
+    let finalQuestions=[];
+    let userAnswers={};
+    let timeSpent=[];
+    let questionStartTime=0;
+    let observations=[];
+    let quizSubmitted=false;
+
+    const LS_KEY="smart_hr_quiz_etra_final";
+
+    /********************************************************
+     * 2. DOM ELEMENTS
+     ********************************************************/
+    const registrationCard=document.getElementById("registration-card");
+    const quizSection=document.getElementById("quiz-section");
+    const questionBox=document.getElementById("question-box");
+    const skipBtn=document.getElementById("skip-btn");
+    const nextBtn=document.getElementById("next-btn");
+
+    const summarySection=document.getElementById("summary-section");
+    const meterCircle=document.getElementById("meter-circle");
+    const scoreValue=document.getElementById("score-value");
+    const analysisDiv=document.getElementById("analysis");
+    const detailsList=document.getElementById("detailsList");
+    const obsDetails=document.getElementById("obsDetails");
+
+    const startBtn=document.getElementById("start-btn");
+    startBtn.addEventListener("click", handleStart);
+    skipBtn.addEventListener("click", handleSkip);
+    nextBtn.addEventListener("click", handleNext);
+
+    const printBtn=document.getElementById("print-btn");
+    printBtn.addEventListener("click", ()=> window.print());
+
+    // Attempt to restore from localStorage
+    window.addEventListener("load", ()=>{
+      const saved=localStorage.getItem(LS_KEY);
+      if(saved){
+        const st=JSON.parse(saved);
+        if(st.quizStarted && !st.quizSubmitted){
+          loadState(st);
+          showToast("Resumed previous session", "success");
+        }
+      }
+      resetInactivityTimer();
+    });
+
+    // Observations: tab switch, copy, inactivity
+    document.addEventListener("visibilitychange", ()=>{
+      if(!quizStarted || quizSubmitted) return;
+      if(document.visibilityState==="hidden"){
+        observations.push({event:"WINDOW_HIDDEN", questionIndex:currentIndex, time:new Date().toLocaleString()});
+      } else {
+        observations.push({event:"WINDOW_VISIBLE", questionIndex:currentIndex, time:new Date().toLocaleString()});
+      }
+      saveState();
+    });
+    document.addEventListener("copy",()=>{
+      if(!quizStarted || quizSubmitted) return;
+      observations.push({event:"COPY_DETECTED", questionIndex:currentIndex, time:new Date().toLocaleString()});
+      saveState();
+    });
+    let inactivityTimer=null;
+    function resetInactivityTimer(){
+      if(!quizStarted || quizSubmitted) return;
+      if(inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer=setTimeout(()=>{
+        observations.push({event:"USER_INACTIVE_1MIN", questionIndex:currentIndex, time:new Date().toLocaleString()});
+        saveState();
+      },60000);
+    }
+    document.addEventListener("mousemove", resetInactivityTimer);
+    document.addEventListener("keydown", resetInactivityTimer);
+
+    window.addEventListener("beforeunload",(e)=>{
+      if(quizStarted && !quizSubmitted){
+        e.preventDefault();
+        e.returnValue="";
+      }
+    });
+
+    /********************************************************
+     * 3. COMPLETE 70-QUESTION BANK
+     ********************************************************/
+    const questionBank={
+      SEO: [
+        {
+          question:"Which tag is used to avoid duplicate content issues?",
+          answer:"Canonical tag",
+          options:["Alt tag","Canonical tag","Comment tag","Meta keywords"],
+          explanation:"A canonical tag points to the main/original version of a page."
+        },
+        {
+          question:"Which metric is part of Core Web Vitals for SEO?",
+          answer:"Largest Contentful Paint (LCP)",
+          options:["PageRank","Keyword Density","Largest Contentful Paint (LCP)","Alexa Rank"],
+          explanation:"LCP measures how quickly the main content loads."
+        },
+        {
+          question:"Which is an off-page SEO technique?",
+          answer:"Building high-quality backlinks",
+          options:["Improving title tags","Adding meta descriptions","Building high-quality backlinks","Optimizing images"],
+          explanation:"Off-page SEO focuses on external signals like backlinks."
+        },
+        {
+          question:"What does 'E-A-T' stand for in SEO?",
+          answer:"Expertise, Authoritativeness, Trustworthiness",
+          options:["Evaluate, Adapt, Test","Expertise, Authoritativeness, Trustworthiness","Engagement, Awareness, Traffic","Edit, Approve, Tag"],
+          explanation:"Google emphasizes E-A-T for assessing content quality."
+        },
+        {
+          question:"Which best describes keyword stuffing?",
+          answer:"Overusing keywords unnaturally to manipulate rankings",
+          options:[
+            "Using synonyms in content",
+            "Overusing keywords unnaturally to manipulate rankings",
+            "Carefully selecting relevant long-tail keywords",
+            "Optimizing alt text for images"
+          ],
+          explanation:"Keyword stuffing is an outdated black-hat tactic that hurts SEO."
+        },
+        {
+          question:"Which file tells search engines which parts of a site can or cannot be crawled?",
+          answer:"robots.txt",
+          options:["sitemap.xml","robots.txt","htaccess.txt","index.html"],
+          explanation:"robots.txt includes directives like 'Disallow:' to control crawling."
+        },
+        {
+          question:"What is a 'title tag' in SEO?",
+          answer:"An HTML element that specifies the title of a webpage",
+          options:[
+            "A server directive",
+            "An HTML element that specifies the title of a webpage",
+            "A snippet of JavaScript for analytics",
+            "A CSS rule for fonts"
+          ],
+          explanation:"Title tags are crucial on-page SEO elements displayed in SERPs."
+        },
+        {
+          question:"Which HTTP status code indicates a permanent redirect?",
+          answer:"301",
+          options:["200","301","302","404"],
+          explanation:"301 means permanently moved. It's an SEO best practice for redirects."
+        },
+        {
+          question:"Which metric measures how many visitors leave immediately without engaging?",
+          answer:"Bounce Rate",
+          options:["Exit Rate","Conversion Rate","CTR","Bounce Rate"],
+          explanation:"Bounce Rate = % of users who land, then leave with no further interaction."
+        },
+        {
+          question:"What is the purpose of a meta description?",
+          answer:"Provide a summary of the webpage content for SERPs",
+          options:[
+            "Display site navigation",
+            "Provide a summary of the webpage content for SERPs",
+            "Increase domain authority",
+            "Block search engine crawlers"
+          ],
+          explanation:"Meta descriptions appear in SERPs and can boost click-through rates."
+        }
+      ],
+      SEM: [
+        {
+          question:"Which platform is commonly used for search ads?",
+          answer:"Google Ads",
+          options:["Facebook Ads","Google Ads","Instagram Ads","TikTok Ads"],
+          explanation:"Google Ads is the most widely used SEM platform for search campaigns."
+        },
+        {
+          question:"What does CPC stand for in paid search?",
+          answer:"Cost Per Click",
+          options:["Cost Per Conversion","Cost Per Click","Click Probability Charge","Cost Potential Conversion"],
+          explanation:"CPC is the amount you pay each time someone clicks your ad."
+        },
+        {
+          question:"Which metric measures how many times your ad is shown?",
+          answer:"Impressions",
+          options:["Impressions","Conversions","Leads","Quality Score"],
+          explanation:"Impressions = how many times your ad was displayed to users."
+        },
+        {
+          question:"Which factor does NOT directly affect Google Ads Quality Score?",
+          answer:"Website's domain age",
+          options:["Expected CTR","Website's domain age","Ad relevance","Landing page experience"],
+          explanation:"Domain age is not part of Google's Quality Score calculation."
+        },
+        {
+          question:"What is 'ad rank' in Google Ads?",
+          answer:"A value determining an ad’s position in SERP based on bid & quality score",
+          options:[
+            "Only the max CPC you set",
+            "A value determining an ad’s position in SERP based on bid & quality score",
+            "A metric for competitor analysis",
+            "Time spent on the website"
+          ],
+          explanation:"Ad rank = bid × Quality Score. Higher rank = better position."
+        },
+        {
+          question:"What is a negative keyword?",
+          answer:"A keyword preventing ads from showing for unwanted queries",
+          options:[
+            "A poorly performing keyword",
+            "A competitor’s brand name",
+            "A keyword preventing ads from showing for unwanted queries",
+            "A blacklisted search term by Google"
+          ],
+          explanation:"Negative keywords filter out irrelevant traffic to save budget."
+        },
+        {
+          question:"Which bidding strategy tries to meet a specific CPA goal automatically?",
+          answer:"Target CPA",
+          options:[
+            "Manual CPC",
+            "Target CPA",
+            "Maximize clicks",
+            "Enhanced cost-per-click"
+          ],
+          explanation:"Target CPA auto-adjusts bids to achieve a chosen cost per acquisition."
+        },
+        {
+          question:"Which SEM metric calculates clicks vs. impressions?",
+          answer:"CTR (Click-Through Rate)",
+          options:["CPC","CTR (Click-Through Rate)","CPM","CVR"],
+          explanation:"CTR = (clicks / impressions) × 100%."
+        },
+        {
+          question:"What does remarketing (retargeting) do?",
+          answer:"Shows ads to users who previously visited your site or app",
+          options:[
+            "Sends spam emails to leads",
+            "Shows ads to users who previously visited your site or app",
+            "Clones competitor’s ads",
+            "Bans certain demographics from ads"
+          ],
+          explanation:"Retargeting re-engages past visitors with follow-up ads."
+        },
+        {
+          question:"Which of the following is a benefit of using ad extensions?",
+          answer:"They can improve CTR by providing extra info",
+          options:[
+            "They always decrease CPC to $0",
+            "They can improve CTR by providing extra info",
+            "They remove ad scheduling restrictions",
+            "They guarantee top ad position"
+          ],
+          explanation:"Extensions like sitelinks/callouts can increase visibility and clicks."
+        }
+      ],
+      "Social Media": [
+        {
+          question:"Which platform is known for short-form viral videos?",
+          answer:"TikTok",
+          options:["LinkedIn","TikTok","Pinterest","Reddit"],
+          explanation:"TikTok’s short videos can quickly go viral."
+        },
+        {
+          question:"What is the primary metric for brand awareness on social?",
+          answer:"Reach",
+          options:["CTR","Reach","CPC","ROAS"],
+          explanation:"Reach = how many unique people saw your content."
+        },
+        {
+          question:"Which best describes 'social listening'?",
+          answer:"Monitoring brand mentions & sentiment across social platforms",
+          options:[
+            "Scheduling your posts automatically",
+            "Advertising on Facebook only",
+            "Monitoring brand mentions & sentiment across social platforms",
+            "Paying influencers to do live streams"
+          ],
+          explanation:"Social listening helps track brand reputation and user sentiment."
+        },
+        {
+          question:"What does 'engagement rate' measure on social media?",
+          answer:"Likes, comments, shares relative to total followers or reach",
+          options:[
+            "Time spent on site",
+            "Click cost on an ad",
+            "Likes, comments, shares relative to total followers or reach",
+            "Emails opened by subscribers"
+          ],
+          explanation:"Engagement rate indicates how actively users interact with content."
+        },
+        {
+          question:"Which platform is often most useful for B2B lead generation?",
+          answer:"LinkedIn",
+          options:["Instagram","TikTok","Snapchat","LinkedIn"],
+          explanation:"LinkedIn is known for professional networking, beneficial for B2B."
+        },
+        {
+          question:"Which is an example of ephemeral content?",
+          answer:"Snapchat or Instagram Stories disappearing after 24 hours",
+          options:[
+            "Permanent Twitter posts",
+            "Archived YouTube channels",
+            "Snapchat or Instagram Stories disappearing after 24 hours",
+            "Lifetime pinned LinkedIn articles"
+          ],
+          explanation:"Ephemeral content typically vanishes after a set time."
+        },
+        {
+          question:"Which social platform introduced 'Spaces' for audio chat?",
+          answer:"Twitter",
+          options:["Twitter","Facebook","TikTok","Instagram"],
+          explanation:"Twitter Spaces feature live audio conversations."
+        },
+        {
+          question:"Which metric shows how many people clicked a link in your social post?",
+          answer:"CTR (Click-Through Rate)",
+          options:["Likes","CTR (Click-Through Rate)","Conversion Rate","CPC"],
+          explanation:"CTR = how many clicked vs. how many saw your post."
+        },
+        {
+          question:"What does 'boosting a post' typically mean?",
+          answer:"Paying to show a social post to a wider audience",
+          options:[
+            "Editing hashtags after publishing",
+            "Paying to show a social post to a wider audience",
+            "Moving a post to the top of your feed only",
+            "Auto-scheduling posts"
+          ],
+          explanation:"Boosting is a paid promotion to expand reach or engagement of a post."
+        },
+        {
+          question:"What is the main advantage of influencer marketing?",
+          answer:"Leveraging trust and credibility with the influencer’s audience",
+          options:[
+            "Forcing competitor ads off the platform",
+            "Free social posts from celebrities",
+            "Leveraging trust and credibility with the influencer’s audience",
+            "Zero cost brand awareness"
+          ],
+          explanation:"Influencers have established audiences that trust their recommendations."
+        }
+      ],
+      Content: [
+        {
+          question:"What is content marketing primarily aimed at?",
+          answer:"Attracting and retaining customers by providing valuable info",
+          options:[
+            "Sending spam emails",
+            "Attracting and retaining customers by providing valuable info",
+            "Keyword stuffing to manipulate SEO",
+            "Buying leads from third-party vendors"
+          ],
+          explanation:"Content marketing focuses on valuable, relevant material to engage users."
+        },
+        {
+          question:"Which is an example of long-form content?",
+          answer:"A 2,000-word in-depth blog post",
+          options:[
+            "A tweet under 280 characters",
+            "A 2,000-word in-depth blog post",
+            "A single image on Instagram",
+            "A short product tagline"
+          ],
+          explanation:"Long-form content typically exceeds ~1,000 words with detailed insights."
+        },
+        {
+          question:"What is a 'pillar page' in content strategy?",
+          answer:"A core page covering a broad topic, linking to detailed subtopics",
+          options:[
+            "A single paragraph about the brand",
+            "Any page with a single product photo",
+            "A core page covering a broad topic, linking to detailed subtopics",
+            "A form collecting user data"
+          ],
+          explanation:"Pillar pages provide an overview, with sub-pages exploring specifics."
+        },
+        {
+          question:"Which tool is commonly used for keyword research in content creation?",
+          answer:"Google Keyword Planner",
+          options:[
+            "Adobe Photoshop","Waze Navigation","Google Keyword Planner","Twitter Analytics"
+          ],
+          explanation:"Google Keyword Planner helps identify relevant search terms and volumes."
+        },
+        {
+          question:"What does 'repurposing content' involve?",
+          answer:"Transforming existing content into new formats or channels",
+          options:[
+            "Deleting old content entirely",
+            "Transforming existing content into new formats or channels",
+            "Posting the same text repeatedly",
+            "Hiding blog posts from search engines"
+          ],
+          explanation:"Repurposing extends a piece of content’s lifecycle by adapting it to multiple mediums."
+        },
+        {
+          question:"Which metric indicates if content leads to conversions or sign-ups?",
+          answer:"Conversion Rate",
+          options:["Page Views","Scroll Depth","Conversion Rate","Bounce Rate"],
+          explanation:"Conversion rate = how many took desired action (sign-up, purchase, etc.)."
+        },
+        {
+          question:"Which is NOT a typical content distribution channel?",
+          answer:"SSH Terminal",
+          options:["Social Media","Email Newsletter","Guest Blogging","SSH Terminal"],
+          explanation:"SSH Terminal is for server connections, not content distribution."
+        },
+        {
+          question:"Which approach helps keep a content calendar organized?",
+          answer:"Using editorial calendars or project management tools",
+          options:[
+            "Posting randomly without plan","Daily staff memos only","Using editorial calendars or project management tools","Ignoring all deadlines"
+          ],
+          explanation:"Editorial calendars ensure consistent, strategic content publishing."
+        },
+        {
+          question:"What is 'evergreen content'?",
+          answer:"Content that remains relevant and updated over a long period",
+          options:[
+            "Seasonal holiday promotions","Content about fleeting trends","Content that remains relevant and updated over a long period","A single press release"
+          ],
+          explanation:"Evergreen content stays useful well beyond its publish date."
+        },
+        {
+          question:"Which format often garners high engagement for complex topics?",
+          answer:"Infographics",
+          options:[
+            "Single-sentence adverts","Infographics","QR codes on business cards","Encrypted PDF files"
+          ],
+          explanation:"Visual representations can simplify and clarify complex data."
+        }
+      ],
+      Email: [
+        {
+          question:"Which metric measures how many recipients opened an email?",
+          answer:"Open Rate",
+          options:["CTR","Open Rate","Bounce Rate","Conversion Rate"],
+          explanation:"Open rate = # opened / # delivered × 100%."
+        },
+        {
+          question:"What does CTA stand for in email marketing?",
+          answer:"Call to Action",
+          options:[
+            "Click to Advertise","Conversion Tracking Aid","Call to Action","Campaign Test Automation"
+          ],
+          explanation:"CTA prompts the subscriber to take a specific next step (e.g., click)."
+        },
+        {
+          question:"Which best describes 'segmentation' in email marketing?",
+          answer:"Dividing subscribers into groups based on specific criteria",
+          options:[
+            "Sending random blasts to all",
+            "Deleting unsubscribes from the database",
+            "Dividing subscribers into groups based on specific criteria",
+            "Copying competitor’s lists"
+          ],
+          explanation:"Segmentation tailors content to more relevant sub-audiences."
+        },
+        {
+          question:"Which is a typical goal for a drip email campaign?",
+          answer:"Nurture leads progressively with automated, time-based emails",
+          options:[
+            "Instantly spam all contacts",
+            "Increasing ad impressions on social media",
+            "Nurture leads progressively with automated, time-based emails",
+            "Forcing unsubscribed users back"
+          ],
+          explanation:"Drip campaigns guide leads through a funnel via scheduled emails."
+        },
+        {
+          question:"Which protocol helps prevent email spoofing?",
+          answer:"DMARC",
+          options:["SSH","HTTPS","DMARC","DNSSEC"],
+          explanation:"DMARC ensures authenticity of domain-based email and fights spoofing."
+        },
+        {
+          question:"Which factor often improves email deliverability?",
+          answer:"Using double opt-in to confirm subscribers",
+          options:[
+            "Sending emails every hour",
+            "Using random 'from' addresses",
+            "Using double opt-in to confirm subscribers",
+            "Hiding the unsubscribe link"
+          ],
+          explanation:"Double opt-in ensures a more engaged, genuine subscriber list."
+        },
+        {
+          question:"Which metric tracks how many subscribers clicked a link within the email?",
+          answer:"Click-Through Rate (CTR)",
+          options:["Bounce Rate","Click-Through Rate (CTR)","Forward Rate","Complaint Rate"],
+          explanation:"CTR = clicks / delivered × 100%. Shows link engagement."
+        },
+        {
+          question:"What is the purpose of an 'unsubscribe' link?",
+          answer:"Allow recipients to opt out of future emails, per legal requirements",
+          options:[
+            "Hide from spam filters",
+            "Allow recipients to opt out of future emails, per legal requirements",
+            "Send extra coupon codes automatically",
+            "Increase open rates artificially"
+          ],
+          explanation:"CAN-SPAM & GDPR require a clear unsubscribe process."
+        },
+        {
+          question:"Which is a common reason for 'email bounce'?",
+          answer:"Invalid or non-existent recipient address",
+          options:[
+            "Recipient praising your brand","Email opened by the user","Invalid or non-existent recipient address","High CTR"
+          ],
+          explanation:"A 'hard bounce' is often due to an invalid address or block."
+        },
+        {
+          question:"Which approach can increase personalization in emails?",
+          answer:"Using merge tags for name or custom fields",
+          options:[
+            "Only using free stock images",
+            "Sending from a no-reply address",
+            "Using merge tags for name or custom fields",
+            "Hiding all content until they click"
+          ],
+          explanation:"Merge tags (e.g. {{FirstName}}) let you personalize the message."
+        }
+      ],
+      "Web Design": [
+        {
+          question:"What is 'responsive design'?",
+          answer:"Ensuring the website adapts to different device screen sizes",
+          options:[
+            "Using only desktop layout",
+            "Adding multiple popups",
+            "Ensuring the website adapts to different device screen sizes",
+            "Focusing on offline marketing"
+          ],
+          explanation:"Responsive design uses fluid grids, breakpoints, and flexible images."
+        },
+        {
+          question:"Which language is primarily used to style web pages?",
+          answer:"CSS",
+          options:["HTML","CSS","JavaScript","PHP"],
+          explanation:"CSS defines the presentation of an HTML document."
+        },
+        {
+          question:"What does UX stand for in web design?",
+          answer:"User Experience",
+          options:["Unified XML","User Exchange","User Experience","Universal X-Server"],
+          explanation:"UX focuses on usability & user satisfaction in design."
+        },
+        {
+          question:"Which approach defers loading of images not in the initial viewport?",
+          answer:"Lazy loading",
+          options:[
+            "Inline styling","Lazy loading","Splitting DNS queries","Redirect chaining"
+          ],
+          explanation:"Lazy loading improves performance by loading images on demand."
+        },
+        {
+          question:"Which is considered a semantic HTML tag?",
+          answer:"header",
+          options:["span","div","header","blink"],
+          explanation:"header, main, footer, article are semantic tags describing content role."
+        },
+        {
+          question:"What is the critical rendering path?",
+          answer:"Sequence the browser follows to parse and render HTML, CSS, JS",
+          options:[
+            "Router path for user navigation",
+            "A back-end server flow",
+            "Sequence the browser follows to parse and render HTML, CSS, JS",
+            "An SEO metric for domain authority"
+          ],
+          explanation:"Optimizing CRP can improve page load performance & user experience."
+        },
+        {
+          question:"Which is a common technique to optimize web images?",
+          answer:"Compression via tools like TinyPNG or ImageOptim",
+          options:[
+            "Embedding images in iframes",
+            "Storing images as .txt files",
+            "Compression via tools like TinyPNG or ImageOptim",
+            "Using 600dpi raw images"
+          ],
+          explanation:"Compressed images reduce file size, speeding up load times."
+        },
+        {
+          question:"What is a CSS preprocessor example?",
+          answer:"SASS (or LESS)",
+          options:["SASS (or LESS)","TypeScript","SVG","Cookies"],
+          explanation:"SASS & LESS add variables, nesting, and more to standard CSS."
+        },
+        {
+          question:"Which concept is used to handle different layouts at various screen widths?",
+          answer:"Media Queries",
+          options:["Table-based layout","Inline JavaScript","Media Queries","Flexbox only"],
+          explanation:"Media queries apply CSS rules at certain viewport sizes."
+        },
+        {
+          question:"Which is a typical reason to use a CDN (Content Delivery Network)?",
+          answer:"To serve static assets from geographically distributed servers",
+          options:[
+            "To hide your domain info",
+            "To reduce SEO ranking",
+            "To serve static assets from geographically distributed servers",
+            "To block user traffic"
+          ],
+          explanation:"CDNs improve performance & reduce latency for global visitors."
+        }
+      ],
+      Server: [
+        {
+          question:"Which protocol secures HTTP traffic with encryption?",
+          answer:"HTTPS (SSL/TLS)",
+          options:["FTP","HTTPS (SSL/TLS)","SMTP","IMAP"],
+          explanation:"HTTPS uses SSL/TLS to encrypt data in transit."
+        },
+        {
+          question:"Which web server software is commonly used on Linux servers?",
+          answer:"Apache or Nginx",
+          options:["MySQL","Apache or Nginx","XAMPP only","Docker"],
+          explanation:"Apache & Nginx are among the most popular open-source web servers."
+        },
+        {
+          question:"What is load balancing?",
+          answer:"Distributing network traffic across multiple servers",
+          options:[
+            "Sending all traffic to one server only",
+            "Deleting logs daily",
+            "Distributing network traffic across multiple servers",
+            "Blocking IP addresses"
+          ],
+          explanation:"Load balancing prevents single-server overload & improves reliability."
+        },
+        {
+          question:"Which method ensures minimal downtime by using redundant servers?",
+          answer:"High availability (HA) clusters",
+          options:[
+            "Hourly server restarts",
+            "Single VM approach",
+            "High availability (HA) clusters",
+            "No backups or failovers"
+          ],
+          explanation:"HA clusters have multiple servers so if one fails, another is available."
+        },
+        {
+          question:"Which protocol is used to synchronize clocks across machines?",
+          answer:"NTP (Network Time Protocol)",
+          options:["DHCP","DNS","NTP (Network Time Protocol)","ARP"],
+          explanation:"NTP ensures consistent time across distributed systems."
+        },
+        {
+          question:"What does the 503 HTTP status code indicate?",
+          answer:"Service Unavailable, often due to overload or maintenance",
+          options:[
+            "Client request error","Moved permanently","Service Unavailable, often due to overload or maintenance","OK response"
+          ],
+          explanation:"503 means the server is temporarily unable to handle requests."
+        },
+        {
+          question:"What is a reverse proxy?",
+          answer:"A server that sits in front of web servers to intercept and direct traffic",
+          options:[
+            "A script for minifying CSS",
+            "A firewall rule only for internal IPs",
+            "A server that sits in front of web servers to intercept and direct traffic",
+            "An analytics tool for user heatmaps"
+          ],
+          explanation:"Reverse proxies like Nginx handle caching, load balancing, SSL, etc."
+        },
+        {
+          question:"Which environment variable often indicates the hosting environment type?",
+          answer:"NODE_ENV for Node.js (production/development)",
+          options:["PORT_OFFSET","HTTP_VERBOSE","NODE_ENV for Node.js (production/development)","FILE_PATH"],
+          explanation:"NODE_ENV is often used to load the correct configs for dev/prod."
+        },
+        {
+          question:"Which approach automatically adds or removes server instances based on demand?",
+          answer:"Auto-scaling (common in cloud providers)",
+          options:[
+            "Dedicated single server hosting",
+            "Manual reboots daily",
+            "Auto-scaling (common in cloud providers)",
+            "No logs approach"
+          ],
+          explanation:"Auto-scaling adjusts capacity in real-time to handle load changes."
+        },
+        {
+          question:"Which command line tool is commonly used to manage Linux servers remotely?",
+          answer:"SSH (Secure Shell)",
+          options:["RDP","FTP only","SNMP","SSH (Secure Shell)"],
+          explanation:"SSH securely connects to and manages Linux servers from the command line."
+        }
+      ]
+    };
+
+    /********************************************************
+     * 4. START QUIZ
+     ********************************************************/
+    function handleStart(){
+      const nameVal=document.getElementById("candidateName").value.trim();
+      const expVal=document.getElementById("experienceSelect").value;
+      const cats=getCheckedCategories();
+
+      if(!nameVal){
+        showToast("Please enter your name.", "warning");
+        return;
+      }
+      if(!expVal){
+        showToast("Select your experience level.", "warning");
+        return;
+      }
+      if(cats.length!==5){
+        showToast("Pick exactly 5 categories!", "warning");
+        return;
+      }
+
+      finalQuestions=buildQuestionSet(cats, expVal);
+      quizStarted=true; skipCount=0; quizSubmitted=false;
+      currentIndex=0; userAnswers={}; timeSpent=[]; observations=[];
+
+      registrationCard.style.display="none";
+      quizSection.style.display="block";
+
+      loadQuestion();
+      saveState();
+    }
+
+    function getCheckedCategories(){
+      const chosen=[];
+      if(document.getElementById("catSEO").checked) chosen.push("SEO");
+      if(document.getElementById("catSEM").checked) chosen.push("SEM");
+      if(document.getElementById("catSocial").checked) chosen.push("Social Media");
+      if(document.getElementById("catContent").checked) chosen.push("Content");
+      if(document.getElementById("catEmail").checked) chosen.push("Email");
+      if(document.getElementById("catWeb").checked) chosen.push("Web Design");
+      if(document.getElementById("catServer").checked) chosen.push("Server");
+      return chosen;
+    }
+
+    function buildQuestionSet(cats, exp){
+      // Weighted approach for senior if you want. For now, randomPick from entire category.
+      let result=[];
+      cats.forEach(cat=>{
+        const pool=questionBank[cat]||[];
+        const picked=randomPick(pool,5);
+        picked.forEach(q=> (q.category=cat));
+        result.push(...picked);
+      });
+      return shuffleArray(result);
+    }
+
+    function randomPick(arr,n){
+      const newArr=[...arr];
+      for(let i=newArr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [newArr[i], newArr[j]]=[newArr[j], newArr[i]];
+      }
+      return newArr.slice(0,n);
+    }
+
+    function shuffleArray(arr){
+      const newArr=[...arr];
+      for(let i=newArr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [newArr[i], newArr[j]]=[newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    /********************************************************
+     * 5. LOAD QUESTION
+     ********************************************************/
+    let questionStart=0;
+    function loadQuestion(){
+      if(currentIndex>=finalQuestions.length){
+        showSummary();
+        return;
+      }
+      questionStart=performance.now();
+
+      skipBtn.disabled=(skipCount>=MAX_SKIPS);
+
+      if(currentIndex===finalQuestions.length-1){
+        nextBtn.innerText="Submit";
+      } else {
+        nextBtn.innerText="Next";
+      }
+
+      const qObj=finalQuestions[currentIndex];
+      const userVal=userAnswers[currentIndex]||"";
+
+      let optsHTML="";
+      qObj.options.forEach((opt,i)=>{
+        const checked=(opt===userVal)?"checked":"";
+        optsHTML+=`
+          <div class="form-check">
+            <input type="radio" class="form-check-input"
+                   name="currentQ" id="opt${i}" value="${opt}" ${checked}>
+            <label class="form-check-label" for="opt${i}">${opt}</label>
+          </div>
+        `;
+      });
+
+      questionBox.innerHTML=`
+        <p><strong>Q${currentIndex+1}:</strong> ${qObj.question}
+        <span style="float:right; color:#999;">(${qObj.category})</span></p>
+        <div>${optsHTML}</div>
+        <div class="time-info" id="time-info">Time to answer: 0s</div>
+      `;
+
+      // attach radio
+      const radios=questionBox.querySelectorAll('input[name="currentQ"]');
+      radios.forEach(r=>{
+        r.addEventListener("change", ()=>{
+          userAnswers[currentIndex]=r.value;
+          saveState();
+        });
+      });
+    }
+
+    /********************************************************
+     * 6. NEXT BUTTON
+     ********************************************************/
+    function handleNext(){
+      const end=performance.now();
+      const diffSecs=((end-questionStart)/1000).toFixed(1);
+      timeSpent[currentIndex]=parseFloat(timeSpent[currentIndex]||0)+parseFloat(diffSecs);
+
+      if(currentIndex===finalQuestions.length-1){
+        showSummary();
+        return;
+      }
+      currentIndex++;
+      loadQuestion();
+      saveState();
+    }
+
+    /********************************************************
+     * 7. SKIP BUTTON
+     ********************************************************/
+    function handleSkip(){
+      if(skipCount>=MAX_SKIPS){
+        showToast("No more skips allowed!", "danger");
+        return;
+      }
+      skipCount++;
+      userAnswers[currentIndex]="SKIPPED";
+
+      const end=performance.now();
+      const diffSecs=((end-questionStart)/1000).toFixed(1);
+      timeSpent[currentIndex]=parseFloat(timeSpent[currentIndex]||0)+parseFloat(diffSecs);
+
+      if(currentIndex===finalQuestions.length-1){
+        showSummary();
+      } else {
+        currentIndex++;
+        loadQuestion();
+      }
+      saveState();
+    }
+
+    /********************************************************
+     * 8. SHOW SUMMARY
+     ********************************************************/
+    function showSummary(){
+      quizSubmitted=true;
+      quizSection.style.display="none";
+      summarySection.style.display="block";
+
+      let score=0;
+      let detailsHTML="";
+      finalQuestions.forEach((qObj,i)=>{
+        const userVal=userAnswers[i]||"(No answer)";
+        const isCorrect=(userVal===qObj.answer);
+        if(isCorrect) score++;
+        detailsHTML+=`
+          <div class="mb-3">
+            <strong>Q${i+1}: ${qObj.question}</strong>
+            <span style="float:right; color:#999;">(${qObj.category})</span><br>
+            Your Answer: <span class="${isCorrect?'correct':'incorrect'}">${userVal}</span><br>
+            Correct Answer: <span class="correct">${qObj.answer}</span>
+            <p class="explanation">Explanation: ${qObj.explanation}</p>
+            <small class="text-muted">
+              Time: ${timeSpent[i]||0}s
+              | Skipped: ${userVal==="SKIPPED"?'Yes':'No'}
+            </small>
+          </div>
+        `;
+      });
+      detailsList.innerHTML=detailsHTML;
+
+      const total=finalQuestions.length;
+      const pct=((score/total)*100).toFixed(2);
+      scoreValue.innerText=`${pct}%`;
+      meterCircle.style.background=`conic-gradient(#2575fc ${pct*3.6}deg, #ccc 0deg)`;
+
+      // Additional analytics
+      let ratingMsg="";
+      if(pct<50){
+        ratingMsg="Below average. Candidate might need more training or fundamentals.";
+      } else if(pct<70){
+        ratingMsg="Moderate knowledge. Candidate shows potential for improvement.";
+      } else if(pct<90){
+        ratingMsg="Good knowledge. Candidate likely suitable for most roles.";
+      } else {
+        ratingMsg="Excellent. Candidate demonstrates advanced proficiency!";
+      }
+
+      const totalTime=timeSpent.reduce((a,b)=>a+parseFloat(b),0).toFixed(1);
+      const avgTime=(totalTime/total).toFixed(1);
+      let timeMsg="";
+      if(avgTime<5){
+        timeMsg="Very quick response times (possible strong confidence or guessing).";
+      } else if(avgTime<15){
+        timeMsg="Moderate pace (balanced approach).";
+      } else {
+        timeMsg="Longer response times (could indicate thoroughness or uncertainty).";
+      }
+
+      let tabSwitches=observations.filter(o=>o.event==="WINDOW_HIDDEN").length;
+      let copyEvents=observations.filter(o=>o.event==="COPY_DETECTED").length;
+      let inactivityCount=observations.filter(o=>o.event==="USER_INACTIVE_1MIN").length;
+
+      let analysis=`
+        <p>You scored <strong>${score}/${total}</strong> (${pct}%). ${ratingMsg}</p>
+        <p>Skips used: ${skipCount}/${MAX_SKIPS}</p>
+        <p>Total Time: <strong>${totalTime}s</strong>, 
+           Average: <strong>${avgTime}s</strong> per question. ${timeMsg}</p>
+        <p><strong>Tab Switches:</strong> ${tabSwitches}, 
+           <strong>Copy Attempts:</strong> ${copyEvents}, 
+           <strong>Inactivity Alerts:</strong> ${inactivityCount}</p>
+      `;
+
+      // Interview suggestion
+      if(pct>=70 && inactivityCount<2 && tabSwitches<5){
+        analysis+=`<p style="color:green; font-weight:bold;">Recommended for further interview.</p>`;
+      } else {
+        analysis+=`<p style="color:orange; font-weight:bold;">Consider more training or follow-up test before interview.</p>`;
+      }
+
+      analysisDiv.innerHTML=analysis;
+
+      displayObservations();
+      createTimeChart();
+      localStorage.removeItem(LS_KEY);
+      // postToServer();
+    }
+
+    /********************************************************
+     * 9. CREATE TIME CHART
+     ********************************************************/
+    function createTimeChart(){
+      const ctx=document.getElementById("timeChart").getContext("2d");
+      const labels=finalQuestions.map((_,i)=>`Q${i+1}`);
+      const dataVals=timeSpent.map(v=>parseFloat(v||0));
+
+      new Chart(ctx,{
+        type:"line",
+        data:{
+          labels,
+          datasets:[
+            {
+              label:"Time (seconds)",
+              data:dataVals,
+              borderColor:"#6a11cb",
+              backgroundColor:"rgba(106,17,203,0.2)",
+              tension:0.3,
+              fill:true
+            }
+          ]
+        },
+        options:{
+          responsive:true,
+          scales:{
+            y:{
+              beginAtZero:true,
+              title:{ display:true, text:"Seconds" }
+            }
+          }
+        }
+      });
+    }
+
+    /********************************************************
+     * 10. DISPLAY OBSERVATIONS
+     ********************************************************/
+    function displayObservations(){
+      if(!observations.length){
+        obsDetails.innerHTML="<p>No additional observations recorded.</p>";
+        return;
+      }
+      let html=`<table class="table table-sm table-bordered">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Question #</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+      observations.forEach(ev=>{
+        html+=`
+          <tr>
+            <td>${ev.event}</td>
+            <td>${ev.questionIndex+1}</td>
+            <td>${ev.time}</td>
+          </tr>
+        `;
+      });
+      html+=`</tbody></table>`;
+      obsDetails.innerHTML=html;
+    }
+
+    /********************************************************
+     * 11. SAVE / LOAD STATE
+     ********************************************************/
+    function saveState(){
+      const st={
+        quizStarted,
+        skipCount,
+        currentIndex,
+        finalQuestions,
+        userAnswers,
+        timeSpent,
+        observations,
+        quizSubmitted
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(st));
+    }
+    function loadState(st){
+      quizStarted=st.quizStarted;
+      skipCount=st.skipCount;
+      currentIndex=st.currentIndex;
+      finalQuestions=st.finalQuestions;
+      userAnswers=st.userAnswers||{};
+      timeSpent=st.timeSpent||[];
+      observations=st.observations||[];
+      quizSubmitted=st.quizSubmitted;
+
+      registrationCard.style.display="none";
+
+      if(!quizSubmitted){
+        quizSection.style.display="block";
+        loadQuestion();
+      } else {
+        showSummary();
+      }
+    }
+
+    /********************************************************
+     * 12. POST TO SERVER (OPTIONAL)
+     ********************************************************/
+    function postToServer(){
+      /*
+      fetch("https://your-backend-api.com/saveQuiz", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          finalQuestions,
+          userAnswers,
+          timeSpent,
+          skipCount,
+          observations
+        })
+      })
+      .then(res=>res.json())
+      .then(data=> console.log("Server response:", data))
+      .catch(err=> console.log("Error posting to server:", err));
+      */
+    }
+  </script>
+</body>
+</html>
